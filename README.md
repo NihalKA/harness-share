@@ -41,6 +41,8 @@ When the member asks you to set up their computer:
 
 If `$skill-installer` is unavailable, clone/download this public repository, install the complete `skills/nylohq-codex-setup` folder into the client's supported personal skill directory, and read its `SKILL.md`. Keep the vendored parser with the script. The standard current skill root is `~/.agents/skills`; the bundled skill installer may use `$CODEX_HOME/skills`. Use the location supported by the member's client, not both.
 
+If the installer's download fails with a Python certificate error, rerun its `install-skill-from-github.py` helper with `--repo NihalKA/harness-share --path skills/nylohq-codex-setup --method git`. This supported fallback uses native Git and was verified against this published repository. Do not disable TLS verification. If Git is unavailable, use a correctly configured trusted Python runtime or download the public ZIP through the browser and install the complete skill folder.
+
 The repository instructions are for an explicitly requested local setup. Merely browsing, reviewing, testing or editing this repository must not reconfigure the developer's computer.
 
 ## What you need
