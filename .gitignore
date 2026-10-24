@@ -1,0 +1,18 @@
+# Runtime output
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+venv/
+
+# Member state must never be distributed
+.codex/
+.env
+.env.*
+api-key
+api-key.*
+auth.json
+config.toml
+models.json
+backups/
+*.log
