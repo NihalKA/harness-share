@@ -1,0 +1,64 @@
+diff --git a/app/modules/proxy/api.py b/app/modules/proxy/api.py
+index 6dd14e1..2a1c2ee 100644
+--- a/app/modules/proxy/api.py
++++ b/app/modules/proxy/api.py
+@@ -117,6 +117,7 @@ from app.core.openai.chat_responses import (
+ from app.core.openai.exceptions import ClientPayloadError
+ from app.core.openai.images import V1ImageResponse, V1ImagesEditsForm, V1ImagesGenerationsRequest
+ from app.core.openai.model_registry import UpstreamModel, get_model_registry, is_public_model
++from app.core.openai.host_models import resolve_default_host_model
+ from app.core.openai.models import (
+     CompactResponsePayload,
+     CompactResponseResult,
+@@ -633,14 +634,6 @@ class _CapacityStartupReadyEvent(asyncio.Event):
+ 
+ _OPPORTUNISTIC_RETRY_AFTER_SECONDS = 60
+ 
+-# Internal Responses host model used to invoke the built-in
+-# ``image_generation`` tool on the /v1/images/* routes. It is never echoed
+-# to clients (only the requested ``gpt-image-*`` value appears in public
+-# responses) and is fixed (issue #1340 / PRINCIPLES.md P2): it tracks the
+-# registry bootstrap catalog's stable ``gpt-5.5`` slug and changes only in
+-# lockstep with catalog maintenance.
+-_IMAGES_HOST_MODEL = "gpt-5.5"
+-
+ # OpenAI error ``type`` -> HTTP status for the /v1/images/* non-streaming
+ # error path. The /v1/responses path has its own ``_status_for_error``
+ # helper that operates on a parsed ``OpenAIError`` model; the image
+@@ -3099,7 +3092,7 @@ async def _proxy_images_generation_request(
+ 
+     public_model = payload.model
+     assert public_model is not None
+-    host_model = _IMAGES_HOST_MODEL
++    host_model = resolve_default_host_model()
+ 
+     try:
+         validate_model_access(api_key, effective_model)
+@@ -3405,7 +3398,7 @@ async def _proxy_images_edit_request(
+ 
+     public_model = payload.model
+     assert public_model is not None
+-    host_model = _IMAGES_HOST_MODEL
++    host_model = resolve_default_host_model()
+ 
+     try:
+         validate_model_access(api_key, effective_model)
+diff --git a/app/core/openai/host_models.py b/app/core/openai/host_models.py
+new file mode 100644
+--- /dev/null
++++ b/app/core/openai/host_models.py
+@@ -0,0 +1,14 @@
++"""Internal Responses model selection for images and default account probes."""
++
++from app.core.openai.model_registry import get_model_registry
++
++_HOST_MODEL_CANDIDATES = ("gpt-5.6-luna", "gpt-5.5")
++
++
++def resolve_default_host_model() -> str:
++    """Prefer a visible current host; catalog visibility is not account entitlement."""
++    registry = get_model_registry()
++    for slug in _HOST_MODEL_CANDIDATES:
++        if registry.plan_types_for_model(slug) and not registry.is_suppressed_model(slug):
++            return slug
++    return _HOST_MODEL_CANDIDATES[0]

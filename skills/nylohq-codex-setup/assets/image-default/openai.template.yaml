@@ -1,0 +1,4 @@
+interface:
+  display_name: "NyloHQ Images"
+  short_description: "Generate and edit images through the configured LB"
+  default_prompt: "Use $nylohq-imagegen to create an image through my existing NyloHQ LB connection."

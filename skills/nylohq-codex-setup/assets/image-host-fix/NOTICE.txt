@@ -1,0 +1,11 @@
+Image-host selection backport for codex-lb 1.24.0.
+
+Upstream: https://github.com/Soju06/codex-lb
+Repair: https://github.com/Soju06/codex-lb/commit/92c7f6201a8fd31d6160570f60ee59db5686dd67
+License: MIT; see CODEX-LB-LICENSE.
+
+The 14-line host_models.py resolver is copied from the upstream repair.
+The accompanying patch adapts its use to the 1.24.0 image generation and edit
+routes. It omits upstream changes to account probes and unrelated documents.
+The Dockerfile is a packaging recipe for an operator's own retained image;
+no image, credential, account data or private configuration is distributed.

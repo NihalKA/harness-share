@@ -91,6 +91,26 @@ After setup, start `codex` in a normal terminal. Inside the interactive Codex se
 
 The setup never opens the microphone automatically. Mac CLI Voice was demonstrated in the earlier pilot. Native Windows realtime audio still needs a member pilot. Setting the Voice routes does not guarantee a desktop Voice button or every account-gated feature.
 
+## Image generation
+
+The NyloHQ image API host-selection repair was verified on 9 November 2026. Members using the same repaired server already benefit from that server change. To use it when Codex's built-in image tool is missing, install or update the **complete skill folder**, then paste:
+
+```text
+Read the installed $nylohq-codex-setup skill and references/image-generation.md.
+I choose my existing NyloHQ LB image API fallback as my default for requested
+image work whenever the built-in image tool is unavailable. I authorize reuse
+of my own protected LB key for that work. Install the included nylohq-imagegen
+companion skill and save this choice using scripts/image_defaults.py, while
+preserving and backing up my existing instructions. Then generate and show a
+sample LinkedIn banner. Keep my key private and do not modify the LB server.
+```
+
+The new `scripts/image_cli.py` helper passes your own protected LB key and the LB endpoint to Codex's existing bundled image CLI for that process. It does not require a new OpenAI key, change your main config, or install another image provider. It also does not make the missing built-in image tool appear in a chat.
+
+The separate opt-in `scripts/image_defaults.py` installer addresses **new-chat discovery**: it installs the included `nylohq-imagegen` companion and records the member's chosen fallback in their personal `AGENTS.md`. It preserves existing instructions, makes private backups, and is safe to repeat. After installation, a new chat can handle an ordinary request such as “Create a sample banner image” without needing the fallback prompt again. Actual generation still depends on working credentials, server capacity and model availability.
+
+Other codex-lb operators seeing `No accounts with a plan supporting model 'gpt-5.5'` need the **server-side fix**. See the [member instructions and operator repair](skills/nylohq-codex-setup/references/image-generation.md), including the upstream commit, a narrow 1.24.0 backport, validation and rollback. Do not apply the server patch separately on each member's laptop.
+
 ## Validation and maintenance
 
 Mac end-to-end setup passed using `gpt-5.6-terra` and `gpt-6-luna`, including catalog discovery, strict config validation, native credential reading, text replies, repeated setup and exact restoration. The script also has offline tests for preservation, model selection, Windows command generation, key handling, rollback and restore. Native Windows execution and audio require their own pilot; these tests do not establish four-member concurrency or server-side accounting.
@@ -100,11 +120,15 @@ Run the offline tests from the repository root:
 ```sh
 # Mac
 python3 -B skills/nylohq-codex-setup/scripts/test_setup.py
+python3 -B skills/nylohq-codex-setup/scripts/test_image_cli.py
+python3 -B skills/nylohq-codex-setup/scripts/test_image_defaults.py
 ```
 
 ```powershell
 # Windows
 py -3 -B skills/nylohq-codex-setup/scripts/test_setup.py
+py -3 -B skills/nylohq-codex-setup/scripts/test_image_cli.py
+py -3 -B skills/nylohq-codex-setup/scripts/test_image_defaults.py
 ```
 
 See [the skill](skills/nylohq-codex-setup/SKILL.md), [member walkthrough](skills/nylohq-codex-setup/START-HERE.md), and [platform troubleshooting](skills/nylohq-codex-setup/references/platform-notes.md). The included `tomlkit` parser retains its [MIT license](skills/nylohq-codex-setup/scripts/vendor/TOMLKIT-LICENSE) and [provenance notice](skills/nylohq-codex-setup/scripts/vendor/NOTICE.txt).

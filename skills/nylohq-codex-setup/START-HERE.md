@@ -45,6 +45,16 @@ The setup script never opens your microphone. Mac CLI Voice was demonstrated in 
 
 ## Later maintenance or undo
 
+For images when the built-in tool is missing, update this complete skill and
+follow [image generation](references/image-generation.md). For ordinary image
+requests to work in new chats, paste:
+
+> I choose my existing NyloHQ LB image API fallback as my default for requested image work when the built-in tool is unavailable. Install the included nylohq-imagegen companion and record this preference using scripts/image_defaults.py, preserving and backing up my existing instructions. Reuse my own protected LB key privately. Then generate and show a sample banner. Do not modify the LB server.
+
+The helper reuses your key privately; a new OpenAI key or unrelated image plugin
+is not required for the configured LB route. This enables the fallback workflow,
+not the missing native tool itself.
+
 - Refresh models: ask `$nylohq-codex-setup` to refresh your catalog while reusing your existing key. It backs up and tests again.
 - Replace your key: ask the skill to update your key. It will give you the hidden prompt again.
 - Undo setup: ask the skill to restore the exact backup directory from the successful report. Restore checks for later changes and stops rather than overwriting them.

@@ -1,6 +1,6 @@
 ---
 name: nylohq-codex-setup
-description: Set up or repair direct NyloHQ LB access in the official Codex client on native macOS or Windows using the member's own API key, with config backups, model discovery, CLI verification, and realtime Voice routes. Use for onboarding a NyloHQ member, refreshing their catalog/key, or restoring this setup's backup.
+description: Set up or repair direct NyloHQ LB access in the official Codex client on native macOS or Windows using the member's own API key. Use for onboarding, catalog/key refresh, restoring setup backups, or explicitly requested NyloHQ image API fallback.
 ---
 
 # NyloHQ Codex setup
@@ -8,6 +8,10 @@ description: Set up or repair direct NyloHQ LB access in the official Codex clie
 Configure the member's local Codex to connect directly to `https://codex.nylohq.com`. The helper performs the configuration work; follow the steps below in order. This works with a setup conversation running Terra or Luna and does not require changing that conversation's model.
 
 This is a one-time workflow the member requests after signing in. Installing the skill does not create a login hook, background service, local bridge, router, or microphone session.
+
+For an **image API fallback request**, read [image generation](references/image-generation.md) and use `scripts/image_cli.py`; do not rerun onboarding. It passes the existing member key and LB URL only to Codex's bundled image CLI. It does not enable the native image tool or grant fallback approval for unrelated future requests. Reuse approval already present in the current conversation. Read the server repair section only for a server-side `gpt-5.5` plan error.
+
+When the member explicitly chooses this fallback as their **default for future image requests**, follow that reference's “Enable ordinary image requests in new chats” section and run `scripts/image_defaults.py`. It installs the included image-skill template and merges the personal backend preference into the active Codex home's `AGENTS.md`, preserving and backing up existing instructions. Installing this setup skill alone does not enable that preference.
 
 ## Scope and credential handling
 
