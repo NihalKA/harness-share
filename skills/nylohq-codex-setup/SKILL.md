@@ -13,6 +13,8 @@ For an **image API fallback request**, read [image generation](references/image-
 
 When the member explicitly chooses this fallback as their **default for future image requests**, follow that reference's “Enable ordinary image requests in new chats” section and run `scripts/image_defaults.py`. It installs the included image-skill template and merges the personal backend preference into the active Codex home's `AGENTS.md`, preserving and backing up existing instructions. Installing this setup skill alone does not enable that preference.
 
+For the repository README's combined install/update prompt, inspect the existing connection first. If its NyloHQ provider and saved member key are usable, skip key entry and onboarding and continue through image-default installation and the requested sample generation. If a new connection is needed, finish the setup workflow below first, then return to the image workflow in the same chat. Do not treat merely copying this folder as completion.
+
 ## Scope and credential handling
 
 - Work on the member's **local computer**, not a cloud executor or WSL. Use native PowerShell on Windows. If tools only access a remote environment, give the member local commands instead of changing that remote configuration.

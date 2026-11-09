@@ -2,42 +2,47 @@
 
 Set up the official Codex client on **macOS or native Windows** using your own NyloHQ LB key. Codex installs the skill, checks prerequisites, backs up your configuration, configures the connection, and verifies it. Your current Terra or Luna model can handle the setup conversation.
 
-## Start here: paste this into Codex
+## Start here: one prompt in Codex
 
-Use a **local Codex chat on the computer you want to configure**. Paste this entire message:
+Use a **local Codex chat on your own computer** and paste the message below. It works for both new members and members updating an existing installation. Codex gets the skill directly from this repository; you do not need the release ZIP for this route.
 
 ```text
-Set up my computer using https://github.com/NihalKA/harness-share.
-Read its README.md. Use $skill-installer to install the skill from
-https://github.com/NihalKA/harness-share/tree/main/skills/nylohq-codex-setup.
-Then read the installed SKILL.md and carry out the setup on this computer.
-Keep my current Terra or Luna model if available. Preserve my existing
-tools, preferences and native sign-in, and back up my configuration.
-Give me the hidden terminal prompt for entering my own NyloHQ LB key;
-do not ask me to paste my key into this chat. Complete the connection
-checks and report the backup location. Do not start my microphone.
+Install or update the NyloHQ skill from https://github.com/NihalKA/harness-share.
+Read its README.md, install the complete skills/nylohq-codex-setup folder,
+then read the installed SKILL.md and finish the setup in this chat.
+Reuse my own saved LB key if already configured; otherwise guide me through
+the private terminal key prompt. Keep my key out of chat.
+I choose the existing NyloHQ LB API fallback as my default for image work
+I request when the built-in tool is unavailable. Install the included
+nylohq-imagegen companion and save my choice using image_defaults.py.
+Preserve and back up my existing settings and instructions, keep my current
+model if available, and generate a sample banner to verify the image path.
+Do not modify the LB server or start my microphone.
 ```
 
-You do not need to edit TOML, copy someone else's config, install a router, or choose a stronger model for setup.
+Once Codex reports success, start a **new chat** and ask normally: **“Create a sample banner image.”** The installed image skill and saved backend choice provide the fallback automatically when the native tool is missing. Image requests use your LB quota.
 
-Codex will give you a command to run in your own **Terminal (Mac)** or **PowerShell (Windows)**. Run it, paste your key at the hidden prompt, press Enter, then tell Codex:
+For a **new connection**, Codex gives you a command to run in your own **Terminal (Mac)** or **PowerShell (Windows)**. Run it, paste your key at the hidden prompt, press Enter, then tell Codex:
 
 ```text
 Key saved, continue.
 ```
 
-After Codex reports success, fully quit and reopen the desktop client and restart CLI sessions. Open a **new chat** and send a short message. Run setup once; it does not automatically repeat at every login.
+If Codex changes the provider configuration, fully quit and reopen the desktop client and restart CLI sessions before testing. Existing configured members can reuse their saved key; updating the skill and image preference does not require re-entering it. Run setup once and use the same prompt when you want to update it later.
+
+The skill is kept in [`skills/nylohq-codex-setup`](skills/nylohq-codex-setup), including the image helper, default installer and companion templates. The [v2 ZIP and text instructions](https://github.com/NihalKA/harness-share/releases/tag/nylohq-images-v2) remain an alternative when downloading through Codex is inconvenient.
 
 ## Instructions for the Codex agent
 
-When the member asks you to set up their computer:
+When the member uses the prompt above:
 
 1. Work in their local environment. A cloud executor or WSL configuration will not configure their native desktop client.
 2. Install `skills/nylohq-codex-setup` from this repository with the available `$skill-installer`. If it is already installed, inspect it before replacing anything; preserve an older copy before updating. Never install duplicate copies in multiple skill roots.
 3. Read the installed `SKILL.md` and follow its ordered workflow. If the skill list only refreshes next turn, read the installed file directly to continue this request. Do not stop after merely installing the skill.
-4. Use the bundled `scripts/setup.py` for preflight, private key entry, validation, backup and configuration. Resolve actual paths for this member. Do not generate your own TOML replacement.
-5. The member must enter their key themselves through the hidden terminal prompt. Pause for “Key saved, continue,” then finish the authorized setup. Never request the key in chat, screenshots, command arguments or tool logs.
-6. Report the checks that actually passed, the selected model, and the exact backup location. Leave microphone activation and final app restart to the member.
+4. Inspect the existing connection first. If the configured NyloHQ connection and saved member key are usable, reuse them and continue with the image workflow; do not rerun onboarding or request the key again. If setup is needed, use the bundled `scripts/setup.py` for preflight, private key entry, validation, backup and configuration. Resolve actual paths for this member. Do not generate your own TOML replacement.
+5. If key entry is needed, the member enters it themselves through the hidden terminal prompt. Pause for “Key saved, continue,” then finish setup. Never request the key in chat, screenshots, command arguments or tool logs.
+6. The prompt explicitly chooses the image fallback default. Follow `references/image-generation.md`, run `scripts/image_defaults.py` with the resolved Codex home and personal skill root, and verify the helper with `--check`. Generate and inspect the requested sample banner. Do not stop after copying the skill or merely explaining the fallback.
+7. Report the checks that actually passed and the exact backup locations. Explain the ordinary image request to use in a new chat. Leave microphone activation and any required app restart to the member.
 
 If `$skill-installer` is unavailable, clone/download this public repository, install the complete `skills/nylohq-codex-setup` folder into the client's supported personal skill directory, and read its `SKILL.md`. Keep the vendored parser with the script. The standard current skill root is `~/.agents/skills`; the bundled skill installer may use `$CODEX_HOME/skills`. Use the location supported by the member's client, not both.
 
@@ -93,17 +98,7 @@ The setup never opens the microphone automatically. Mac CLI Voice was demonstrat
 
 ## Image generation
 
-The NyloHQ image API host-selection repair was verified on 9 November 2026. Members using the same repaired server already benefit from that server change. To use it when Codex's built-in image tool is missing, install or update the **complete skill folder**, then paste:
-
-```text
-Read the installed $nylohq-codex-setup skill and references/image-generation.md.
-I choose my existing NyloHQ LB image API fallback as my default for requested
-image work whenever the built-in image tool is unavailable. I authorize reuse
-of my own protected LB key for that work. Install the included nylohq-imagegen
-companion skill and save this choice using scripts/image_defaults.py, while
-preserving and backing up my existing instructions. Then generate and show a
-sample LinkedIn banner. Keep my key private and do not modify the LB server.
-```
+The NyloHQ image API host-selection repair was verified on 9 November 2026. Members using the same repaired server already benefit from that server change. The **start-here prompt above** installs or updates the complete skill, installs the image companion, records the user's chosen backend and tests a sample image in the same workflow.
 
 The new `scripts/image_cli.py` helper passes your own protected LB key and the LB endpoint to Codex's existing bundled image CLI for that process. It does not require a new OpenAI key, change your main config, or install another image provider. It also does not make the missing built-in image tool appear in a chat.
 
