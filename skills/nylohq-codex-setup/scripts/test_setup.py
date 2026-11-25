@@ -201,10 +201,19 @@ class SetupTests(unittest.TestCase):
         candidate, _ = s.build_config(None, self.home, "gpt-6-luna", "high", system="Linux", text_only=True)
         raw = b'fixture-secret HTTP 429; 503 The previous response operation may still be running; Upstream websocket closed before response.completed'
         proc = Mock(returncode=1, stdout=b'', stderr=raw)
-        with patch.object(s, "check_credential"), patch.object(s, "native_os", return_value="Linux"), patch.object(s.subprocess, "run", return_value=proc) as run:
+        real_run = s.subprocess.run
+        probe_calls = []
+
+        def run_probe(command, **kwargs):
+            if command[0] == "fixture-cli":
+                probe_calls.append(command)
+                return proc
+            return real_run(command, **kwargs)
+
+        with patch.object(s, "check_credential"), patch.object(s, "native_os", return_value="Linux"), patch.object(s.subprocess, "run", side_effect=run_probe):
             with self.assertRaises(s.SetupError) as error:
                 s.smoke_check("fixture-cli", candidate, json.dumps(catalog()).encode(), self.home / "fixture-key", "fixture-secret", self.home)
-        self.assertEqual(run.call_count, 1)
+        self.assertEqual(len(probe_calls), 1)
         message = str(error.exception)
         self.assertIn("429", message)
         self.assertIn("cooldown", message)
@@ -308,7 +317,7 @@ class SetupTests(unittest.TestCase):
 
     def test_private_permissions(self):
         if os.name == "nt":
-            self.skipTest("POSIX mode check; Windows DACL needs native pilot")
+            self.skipTest("POSIX mode check; Windows uses the separate DACL test")
         before, after = self.fixture_state()
         backup = s.commit(self.home, before, after)
         self.assertEqual((self.home / "nylohq-lb").stat().st_mode & 0o777, 0o700)
