@@ -60,7 +60,19 @@ class SetupTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="nylohq-offline-test-")
         self.home = Path(self.temp.name) / "Member O'Brien ü" / ".codex"
-        s.private_dir(self.home / "nylohq-lb")
+        self.addCleanup(self.temp.cleanup)
+        real_run = s.subprocess.run
+
+        def fixture_run(*args, **kwargs):
+            result = real_run(*args, **kwargs)
+            # This directory contains no member data. Expose native permission
+            # errors in CI while production setup continues to withhold logs.
+            if result.returncode:
+                self.fail("Fixture permission command failed: " + result.stderr.decode(errors="replace"))
+            return result
+
+        with patch.object(s.subprocess, "run", side_effect=fixture_run):
+            s.private_dir(self.home / "nylohq-lb")
 
     def tearDown(self):
         self.temp.cleanup()
