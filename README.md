@@ -2,7 +2,32 @@
 
 Set up the official Codex client on **macOS, native Windows, or Linux CLI** using your own NyloHQ LB key. Codex installs the skill, checks prerequisites, backs up your configuration, configures the connection, and verifies it. Your current Terra or Luna model can handle the setup conversation.
 
-## Linux or CLI-only: start from your terminal
+## Linux or CLI-only: copy this prompt
+
+Send this repository link to the member: **https://github.com/NihalKA/harness-share**.
+If their local Codex chat is working, they can paste:
+
+```text
+Set up or repair my Linux Codex CLI using https://github.com/NihalKA/harness-share.
+Read the latest main-branch README.md, install or update the complete
+skills/nylohq-codex-setup folder, then follow its SKILL.md and
+references/linux-cli.md in this same Linux environment.
+Use the bundled setup.py helper with --text-only --transport sse.
+Respect my CODEX_HOME and back up my settings. Preserve my existing tools,
+sign-in, and current model if available. Reuse my own saved helper key if
+present; otherwise give me the hidden terminal key-entry command and wait
+for me to confirm it is saved. Never ask me to paste my key into chat.
+Finish the connection checks and report the result and backup path.
+If the LB reports 429, a 503 cooldown, or an upstream stream failure, stop
+repeated attempts and explain the next step; do not claim setup succeeded.
+Do not configure images or Voice, start my microphone, or modify the LB server.
+```
+
+After a successful setup, restart the CLI and test a **new conversation**.
+If Codex cannot answer because the connection is failing, a prompt cannot run
+the repair: use the terminal instructions below instead.
+
+### If Codex cannot answer: terminal setup
 
 Use the [terminal-only setup and troubleshooting guide](skills/nylohq-codex-setup/references/linux-cli.md).
 It works even when Codex cannot currently answer. It covers native Linux and the
@@ -45,7 +70,10 @@ The skill is kept in [`skills/nylohq-codex-setup`](skills/nylohq-codex-setup), i
 
 ## Instructions for the Codex agent
 
-When the member uses the prompt above:
+For the **Linux/CLI prompt**, follow the installed skill's terminal-only path in
+`references/linux-cli.md`; do not run the image workflow below.
+
+When the member uses the **desktop and image prompt**:
 
 1. Work in their local environment. A cloud executor will not configure their local client. WSL configures only the Linux CLI inside WSL, not the native Windows app.
 2. Install `skills/nylohq-codex-setup` from this repository with the available `$skill-installer`. If it is already installed, inspect it before replacing anything; preserve an older copy before updating. Never install duplicate copies in multiple skill roots.
