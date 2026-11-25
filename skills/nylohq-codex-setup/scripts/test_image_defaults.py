@@ -29,7 +29,7 @@ class ImageDefaultsTests(unittest.TestCase):
         self.assertTrue((self.home / "AGENTS.md").read_bytes().startswith(original))
         self.assertEqual((Path(result["backup"]) / "0.before").read_bytes(), original)
         self.assertTrue((self.skills / "nylohq-imagegen/SKILL.md").is_file())
-        self.assertIn(str(self.skills / "nylohq-codex-setup/scripts/image_cli.py"), (self.home / "AGENTS.md").read_text())
+        self.assertIn(str(self.skills / "nylohq-codex-setup/scripts/image_cli.py"), (self.home / "AGENTS.md").read_text(encoding="utf-8"))
 
     def test_repeat_does_not_duplicate_preference_or_backup(self):
         defaults.install(self.home, self.skills)

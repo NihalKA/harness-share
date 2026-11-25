@@ -86,7 +86,7 @@ class ImageCliTests(unittest.TestCase):
             "assert os.environ['OPENAI_BASE_URL']=='https://codex.nylohq.com/v1'\n"
             "assert os.environ['OPENAI_API_KEY']=='fixture-member-key'\n"
             "assert sys.argv[1:]==['generate','--prompt',\"O'Brien $name; ü\"]\n"
-            "print('fixture completed')\n"
+            "print('fixture completed')\n", encoding="utf-8"
         )
         output = io.StringIO()
         with contextlib.redirect_stdout(output):

@@ -316,6 +316,24 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(backup.stat().st_mode & 0o777, 0o700)
         self.assertEqual((backup / "0.before").stat().st_mode & 0o777, 0o600)
 
+    @unittest.skipUnless(os.name == "nt", "Native Windows DACL check")
+    def test_windows_private_dacl(self):
+        path = self.home / "nylohq-lb/api-key"
+        s.atomic_write(path, b"fixture-key")
+        for target, kind in ((path, "File"), (path.parent, "Directory")):
+            script = (
+                "$ErrorActionPreference='Stop';"
+                "$sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User;"
+                f"$acl=[System.IO.{kind}]::GetAccessControl({s.ps_quote(target)});"
+                "$rules=$acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]);"
+                "if(-not $acl.AreAccessRulesProtected -or $rules.Count -ne 1 "
+                "-or $rules[0].IdentityReference.Value -ne $sid.Value "
+                "-or $rules[0].IsInherited -or $rules[0].AccessControlType -ne 'Allow' "
+                "-or $rules[0].FileSystemRights -ne 'FullControl'){exit 1}"
+            )
+            result = s.subprocess.run([s.powershell(), "-NoProfile", "-NonInteractive", "-Command", script], capture_output=True, timeout=20)
+            self.assertEqual(result.returncode, 0, result.stderr.decode(errors="replace"))
+
     def test_redirect_never_forwards_credentials(self):
         with self.assertRaises(s.SetupError):
             s.NoRedirect().redirect_request(None, None, 302, "", {}, "https://other.invalid")

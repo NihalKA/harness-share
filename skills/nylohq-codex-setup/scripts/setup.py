@@ -87,6 +87,7 @@ def protect(path):
         path.chmod(0o700 if path.is_dir() else 0o600)
         return
     kind = "DirectorySecurity" if path.is_dir() else "FileSecurity"
+    file_type = "Directory" if path.is_dir() else "File"
     inheritance = "ContainerInherit,ObjectInherit" if path.is_dir() else "None"
     script = (
         "$ErrorActionPreference='Stop';"
@@ -95,7 +96,9 @@ def protect(path):
         "$acl.SetOwner($sid);$acl.SetAccessRuleProtection($true,$false);"
         f"$rule=[System.Security.AccessControl.FileSystemAccessRule]::new($sid,'FullControl','{inheritance}','None','Allow');"
         "$acl.AddAccessRule($rule);"
-        f"Set-Acl -LiteralPath {ps_quote(path)} -AclObject $acl"
+        # Avoid Set-Acl module auto-loading: a PowerShell 7 parent can pass a
+        # PSModulePath whose Security module cannot load in Windows PowerShell.
+        f"[System.IO.{file_type}]::SetAccessControl({ps_quote(path)},$acl)"
     )
     result = subprocess.run([powershell(), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], capture_output=True, timeout=20)
     if result.returncode:
