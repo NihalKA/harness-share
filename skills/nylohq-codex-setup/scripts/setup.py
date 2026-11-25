@@ -52,8 +52,8 @@ def digest(data):
 
 def native_os():
     name = platform.system()
-    if name not in ("Darwin", "Windows"):
-        raise SetupError("This package targets native macOS or Windows. WSL has separate configuration; run the Windows setup in native PowerShell.")
+    if name not in ("Darwin", "Windows", "Linux"):
+        raise SetupError("This package supports macOS, native Windows and Linux CLI. Run setup in the same OS environment as the intended Codex client.")
     return name
 
 
@@ -263,7 +263,8 @@ def credential_config(key_path, system=None, ps_path=None):
     return {"command": command, "args": args, "timeout_ms": 5000, "refresh_interval_ms": 300000}
 
 
-def build_config(original, home, model, effort, system=None, ps_path=None):
+def build_config(original, home, model, effort, system=None, ps_path=None, transport=None, text_only=False):
+    system = system or native_os()
     doc = parse_config(original)
     if doc.get("profile"):
         raise SetupError("A default config profile is active. Resolve the intended profile with the member before changing global routing.")
@@ -275,15 +276,24 @@ def build_config(original, home, model, effort, system=None, ps_path=None):
     values = {
         "model": model, "model_provider": provider_id, "model_reasoning_effort": effort,
         "model_catalog_json": str(home / "nylohq-lb/models.json"),
-        "experimental_realtime_webrtc_call_base_url": CALLS,
-        "experimental_realtime_ws_base_url": API,
     }
+    if not text_only:
+        values.update(experimental_realtime_webrtc_call_base_url=CALLS,
+                      experimental_realtime_ws_base_url=API)
     for name, value in values.items():
         doc[name] = value
     if "model_providers" not in doc:
         doc["model_providers"] = tomlkit.table(is_super_table=True)
+    previous = providers.get(provider_id, {})
+    if transport not in (None, "sse", "websocket"):
+        raise SetupError("Transport must be sse or websocket.")
+    # Preserve a configured transport on refresh. New Linux connections use HTTP
+    # streaming; other platforms retain the package's existing WebSocket default.
+    websockets = previous.get("supports_websockets", system != "Linux") if transport is None else transport == "websocket"
+    if not isinstance(websockets, bool):
+        raise SetupError("Existing supports_websockets must be a boolean. Choose --transport sse or websocket explicitly.")
     provider = tomlkit.table()
-    for name, value in {"name": "NyloHQ LB", "base_url": API, "model_catalog_url": API + "/models", "wire_api": "responses", "supports_websockets": True}.items():
+    for name, value in {"name": "NyloHQ LB", "base_url": API, "model_catalog_url": API + "/models", "wire_api": "responses", "supports_websockets": websockets}.items():
         provider[name] = value
     provider["auth"] = credential_config(home / "nylohq-lb/api-key", system, ps_path)
     doc["model_providers"][provider_id] = provider
@@ -317,16 +327,40 @@ def check_credential(auth, expected):
         raise SetupError("The native credential command failed or returned an unexpected value. Configuration has not been committed.")
 
 
+def failure_hint(output):
+    """Classify known failures without returning any untrusted process output."""
+    text = output.decode("utf-8", errors="replace").lower()
+    hints = []
+    if re.search(r"\b429\b|too many requests|rate_limit|quota", text):
+        hints.append("Rate/quota limit reported (429); wait for the LB reset/Retry-After or contact its administrator. Do not repeatedly resend.")
+    if "previous response operation may still be running" in text:
+        hints.append("The LB reports a previous operation may still be running; allow its cooldown to expire before one fresh attempt.")
+    elif re.search(r"\b503\b|service unavailable", text):
+        hints.append("Service unavailable (503); ask the administrator to check LB/upstream availability.")
+    if "upstream websocket closed" in text:
+        hints.append("The LB reports an upstream WebSocket closed before completion. Client SSE does not necessarily change the LB-to-upstream transport.")
+    elif "stream disconnected" in text or "websocket" in text:
+        hints.append("A stream/transport failure was reported. Consider one --transport sse check after any cooldown; inspect the LB if it persists.")
+    if re.search(r"\b(?:401|403)\b|unauthorized|forbidden", text):
+        hints.append("Authentication/access failure reported; check this member's key and model permission privately.")
+    return " ".join(hints) or "Check this member's inference access, quota, model and client version."
+
+
 def smoke_check(cli, candidate, catalog, key_path, key, staging):
     source = parse_config(candidate)
     provider_id = source["model_provider"]
     # Minimal isolated session: no copied sign-in, plugins, MCPs, hooks, or history.
     doc = tomlkit.document()
     for name in MANAGED_ROOT:
-        doc[name] = source[name]
+        if name in source:
+            doc[name] = source[name]
     doc["model_catalog_json"] = str(staging / "models.json")
     doc["approval_policy"] = "never"
     doc["model_providers"] = {provider_id: source["model_providers"][provider_id].unwrap()}
+    # A setup probe must not amplify a rate limit or replay an ambiguous failure.
+    # These limits apply only to the disposable test, not the member's config.
+    doc["model_providers"][provider_id]["request_max_retries"] = 0
+    doc["model_providers"][provider_id]["stream_max_retries"] = 0
     auth = credential_config(key_path)
     doc["model_providers"][provider_id]["auth"] = auth
     check_credential(auth, key)
@@ -348,7 +382,9 @@ def smoke_check(cli, candidate, catalog, key_path, key, staging):
         if event.get("type") == "item.completed" and item.get("type") == "agent_message":
             texts.append(item.get("text", ""))
     if result.returncode or not completed or not any("NYLOHQ_SETUP_OK" in x for x in texts):
-        raise SetupError("The isolated Codex text check failed. The real configuration was not changed. Check this member's inference access, quota, model and client version; raw model/log output was withheld.")
+        raise SetupError("The isolated Codex text check failed. The real configuration was not changed. "
+                         + failure_hint(result.stdout + b"\n" + result.stderr)
+                         + " Raw model/log output was withheld.")
 
 
 @contextlib.contextmanager
@@ -429,7 +465,7 @@ def inspect(home, cli_arg=None):
          note="No secret values or complete configuration are printed. Use this same home and executable for subsequent steps.")
 
 
-def apply(home, cli_arg=None, model=None, reuse_key=False):
+def apply(home, cli_arg=None, model=None, reuse_key=False, transport=None, text_only=False):
     native_os()
     cli, version = find_cli(cli_arg)
     with setup_lock(home):
@@ -439,7 +475,8 @@ def apply(home, cli_arg=None, model=None, reuse_key=False):
         doc = parse_config(before["config.toml"])
         catalog = fetch_catalog(key, version)
         selected, effort = choose_model(doc, catalog, model)
-        candidate, provider_id = build_config(before["config.toml"], home, selected, effort)
+        candidate, provider_id = build_config(before["config.toml"], home, selected, effort,
+                                             transport=transport, text_only=text_only)
         catalog_bytes = json.dumps(catalog, ensure_ascii=False).encode("utf-8")
         print("Validating config, credential command and one isolated text turn. This can take up to 150 seconds.", flush=True)
         with tempfile.TemporaryDirectory(prefix="nylohq-check-", dir=home / "nylohq-lb") as temp:
@@ -454,9 +491,10 @@ def apply(home, cli_arg=None, model=None, reuse_key=False):
         if not reuse_key:
             key_path.unlink()
         emit(status="configured", backup=str(backup), codex_home=str(home), model=selected, reasoning=effort,
+             transport="websocket" if parse_config(candidate)["model_providers"][provider_id]["supports_websockets"] else "sse",
              provider_id=provider_id, endpoint=API, visible_models=[m["slug"] for m in catalog["models"] if m.get("visibility") == "list"],
              tests={"strict_config": "passed", "native_credential_command": "passed", "isolated_cli_text": "passed", "microphone": "not_started", "live_voice": "member_test_required"},
-             next="Fully quit and reopen the desktop client and restart CLI sessions. Open a new chat. For Voice, the member manually starts codex and then /voice.")
+             next="Restart CLI sessions and open a new chat; check /status and /model. If you use a desktop client, fully quit and reopen it too.")
 
 
 def verify(home, cli_arg=None):
@@ -467,9 +505,8 @@ def verify(home, cli_arg=None):
     provider = doc.get("model_providers", {}).get(doc.get("model_provider"), {})
     expected = credential_config(home / "nylohq-lb/api-key")
     if (provider.get("base_url") != API or dict(provider.get("auth", {})) != expected
-            or doc.get("model_catalog_json") != str(home / "nylohq-lb/models.json")
-            or doc.get("experimental_realtime_webrtc_call_base_url") != CALLS
-            or doc.get("experimental_realtime_ws_base_url") != API):
+            or provider.get("wire_api") != "responses"
+            or doc.get("model_catalog_json") != str(home / "nylohq-lb/models.json")):
         raise SetupError("Effective user config differs from this package's direct setup. Inspect routing before verifying; no other credential command will be executed.")
     key = read_key(home / "nylohq-lb/api-key")
     catalog = read_optional(home / "nylohq-lb/models.json")
@@ -523,8 +560,12 @@ def main():
     parser.add_argument("--codex-bin", help="Full path to the official Codex executable to validate")
     parser.add_argument("--model", help="Explicit exact model ID, otherwise preserve current or use Terra/Luna")
     parser.add_argument("--reuse-key", action="store_true", help="Explicitly reuse this member's existing protected LB key")
+    parser.add_argument("--transport", choices=["sse", "websocket"], help="apply only: text transport; otherwise preserve existing, default SSE on new Linux setups")
+    parser.add_argument("--text-only", action="store_true", help="apply only: leave realtime Voice URLs untouched; no desktop or image setup required")
     parser.add_argument("--backup", help="Exact backup directory printed by apply (restore only)")
     args = parser.parse_args()
+    if args.command != "apply" and (args.transport is not None or args.text_only):
+        parser.error("--transport and --text-only are apply-only options")
     try:
         home = codex_home(args.home)
         if args.command == "inspect":
@@ -532,7 +573,7 @@ def main():
         elif args.command == "key":
             enter_key(home)
         elif args.command == "apply":
-            apply(home, args.codex_bin, args.model, args.reuse_key)
+            apply(home, args.codex_bin, args.model, args.reuse_key, args.transport, args.text_only)
         elif args.command == "verify":
             verify(home, args.codex_bin)
         elif args.command == "restore":

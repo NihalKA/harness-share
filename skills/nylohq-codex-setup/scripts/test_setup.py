@@ -14,7 +14,10 @@ import setup as s
 def catalog():
     return {"models": [
         {"slug": name, "visibility": visibility, "base_instructions": "Fixture instructions.",
-         "supported_reasoning_levels": [{"effort": "low"}, {"effort": "medium"}, {"effort": "high"}],
+         "supported_reasoning_levels": [{"effort": effort, "description": "Fixture effort"} for effort in ("low", "medium", "high")],
+         "display_name": "Fixture model", "description": "Offline test model", "shell_type": "shell_command",
+         "supported_in_api": True, "priority": 1, "support_verbosity": True,
+         "truncation_policy": {"mode": "tokens", "limit": 10000}, "experimental_supported_tools": [],
          "default_reasoning_level": "medium"}
         for name, visibility in [("gpt-5.6-terra", "list"), ("gpt-6-luna", "list"), ("hidden-model", "hide")]
     ]}
@@ -149,6 +152,79 @@ class SetupTests(unittest.TestCase):
             system = "Windows" if os.name == "nt" else "Darwin"
             s.check_credential(s.credential_config(path, system), "fixture-key")
         self.assertEqual(output.getvalue(), "")
+
+    def test_linux_is_supported_and_other_platforms_still_checked(self):
+        for system in ("Linux", "Darwin", "Windows"):
+            with patch.object(s.platform, "system", return_value=system):
+                self.assertEqual(s.native_os(), system)
+        with patch.object(s.platform, "system", return_value="Unsupported"), self.assertRaises(s.SetupError):
+            s.native_os()
+
+    def test_linux_text_only_uses_sse_and_preserves_other_settings(self):
+        data, provider_id = s.build_config(ORIGINAL, self.home, "gpt-6-luna", "high", system="Linux", text_only=True)
+        doc = s.parse_config(data)
+        provider = doc["model_providers"][provider_id]
+        self.assertFalse(provider["supports_websockets"])
+        self.assertEqual(provider["auth"]["command"], "/bin/cat")
+        self.assertEqual(provider["auth"]["args"], [str(self.home / "nylohq-lb/api-key")])
+        for name in s.MANAGED_ROOT[4:]:
+            self.assertNotIn(name, doc)
+        old = s.parse_config(ORIGINAL)
+        for name in ("plugins", "mcp_servers", "desktop", "projects", "approval_policy"):
+            self.assertEqual(doc[name], old[name])
+
+    def test_transport_selection_refresh_and_voice_preservation(self):
+        for system in ("Linux", "Darwin", "Windows"):
+            for transport in ("sse", "websocket"):
+                with self.subTest(system=system, transport=transport):
+                    opts = dict(system=system, ps_path="fixture-powershell")
+                    once, _ = s.build_config(None, self.home, "gpt-6-luna", "high", transport=transport, **opts)
+                    twice, _ = s.build_config(once, self.home, "gpt-6-luna", "high", text_only=True, **opts)
+                    self.assertEqual(once, twice)
+                    doc = s.parse_config(twice)
+                    self.assertEqual(doc["model_providers"][s.DEFAULT_PROVIDER]["supports_websockets"], transport == "websocket")
+                    self.assertEqual(doc["experimental_realtime_ws_base_url"], s.API)
+
+    def test_smoke_error_is_actionable_private_and_does_not_retry(self):
+        candidate, _ = s.build_config(None, self.home, "gpt-6-luna", "high", system="Linux", text_only=True)
+        raw = b'fixture-secret HTTP 429; 503 The previous response operation may still be running; Upstream websocket closed before response.completed'
+        proc = Mock(returncode=1, stdout=b'', stderr=raw)
+        with patch.object(s, "check_credential"), patch.object(s, "native_os", return_value="Linux"), patch.object(s.subprocess, "run", return_value=proc) as run:
+            with self.assertRaises(s.SetupError) as error:
+                s.smoke_check("fixture-cli", candidate, json.dumps(catalog()).encode(), self.home / "fixture-key", "fixture-secret", self.home)
+        self.assertEqual(run.call_count, 1)
+        message = str(error.exception)
+        self.assertIn("429", message)
+        self.assertIn("cooldown", message)
+        self.assertIn("LB-to-upstream", message)
+        self.assertNotIn("fixture-secret", message)
+        probe = s.parse_config((self.home / "config.toml").read_bytes())["model_providers"][s.DEFAULT_PROVIDER]
+        for key in ("request_max_retries", "stream_max_retries"):
+            self.assertEqual(probe[key], 0)
+            self.assertNotIn(key, s.parse_config(candidate)["model_providers"][s.DEFAULT_PROVIDER])
+
+    def test_linux_apply_verify_restore_roundtrip(self):
+        before, _ = self.fixture_state()
+        s.atomic_write(self.home / "nylohq-lb/api-key.pending", b"fixture-key")
+        with patch.object(s.platform, "system", return_value="Linux"), patch.object(s, "find_cli", return_value=("fixture-cli", "0.171.0")), patch.object(s, "fetch_catalog", return_value=catalog()), patch.object(s, "strict_check"), patch.object(s, "smoke_check"), contextlib.redirect_stdout(io.StringIO()):
+            s.apply(self.home, transport="sse", text_only=True)
+            self.assertFalse((self.home / "nylohq-lb/api-key.pending").exists())
+            self.assertEqual((self.home / "nylohq-lb/api-key").read_bytes(), b"fixture-key")
+            s.verify(self.home)
+            backup = next((self.home / "backups").glob("nylohq-setup-*"))
+            s.restore(self.home, backup)
+        for name in s.TARGETS:
+            self.assertEqual(s.read_optional(self.home / name), before[name])
+
+    @unittest.skipUnless(os.environ.get("NYLOHQ_TEST_CODEX"), "Optional official CLI strict-config test")
+    def test_official_cli_accepts_generated_transport_configs_offline(self):
+        # No real config/key/catalog, auth command execution or provider request.
+        selected = os.environ["NYLOHQ_TEST_CODEX"]
+        cli, _ = s.find_cli(None if selected == "auto" else selected)
+        for transport in ("sse", "websocket"):
+            with self.subTest(transport=transport):
+                candidate, _ = s.build_config(None, self.home, "gpt-6-luna", "high", transport=transport, text_only=True)
+                s.strict_check(cli, candidate, json.dumps(catalog()).encode(), self.home)
 
     def test_backup_and_exact_restore(self):
         before, after = self.fixture_state()

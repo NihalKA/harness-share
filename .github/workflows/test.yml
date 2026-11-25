@@ -1,0 +1,31 @@
+name: Offline setup checks
+
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install -g @openai/codex
+      - name: Validate setup with the official CLI and offline fixtures
+        env:
+          NYLOHQ_TEST_CODEX: auto
+        run: |
+          codex --version
+          python -B skills/nylohq-codex-setup/scripts/test_setup.py
+      - run: python -B skills/nylohq-codex-setup/scripts/test_image_cli.py
+      - run: python -B skills/nylohq-codex-setup/scripts/test_image_defaults.py

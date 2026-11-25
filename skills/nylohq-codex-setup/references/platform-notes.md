@@ -1,18 +1,20 @@
 # Platform and recovery notes
 
+For Linux/WSL CLI, terminal-only onboarding, or 429/503/stream recovery, start with [Linux CLI setup](linux-cli.md).
+
 ## Prerequisites
 
 The member needs a working local Codex client, their own LB key, network access to `https://codex.nylohq.com`, Python 3.9+ for this setup script, and a compatible official Codex executable (tested baseline 0.164.0). The Python TOML dependency is bundled. No pip install, local proxy, service, or custom Voice client is required.
 
-Use a bundled desktop Python if available. If Python is absent, use the official Python installer from python.org or an existing trusted package manager. On Windows the Python launcher can resolve the interpreter with `py -3 -c "import sys; print(sys.executable)"`; on Mac use `python3 -c 'import sys; print(sys.executable)'`. Then use the returned full path. Installation permission requirements still apply.
+Use a bundled desktop Python if available. If Python is absent, use the official Python installer from python.org or an existing trusted package manager. On Windows the Python launcher can resolve the interpreter with `py -3 -c "import sys; print(sys.executable)"`; on Mac/Linux use `python3 -c 'import sys; print(sys.executable)'`. Then use the returned full path. Installation permission requirements still apply.
 
 The Mac machine used to build this package has Homebrew Codex CLI 0.164.0. With Homebrew already installed, the official cask command is `brew install --cask codex` (or `brew upgrade --cask codex` for an existing cask). When using npm, the official CLI package is `@openai/codex`; `npm install -g @openai/codex` is an installation option when Node/npm are already available. For other installations, consult the current official Codex installation instructions rather than inventing package IDs or overwriting an app-bundled executable. Do not install Homebrew or Node solely without explaining that dependency.
 
-Native Windows and WSL use different home directories/configurations. This package targets native Windows. Run setup in native PowerShell for the Windows app/CLI; do not copy a Mac `/bin/cat` command or a WSL path into Windows config. An app using a remote execution environment will not configure the member's laptop by modifying its remote filesystem.
+Native Windows and WSL use different home directories/configurations. Use Linux setup for the CLI inside WSL and native PowerShell for the Windows app/CLI; do not copy a Mac `/bin/cat` command or a WSL path into Windows config. An app using a remote execution environment will not configure the member's laptop by modifying its remote filesystem.
 
 ## Exact command shapes
 
-Mac example shape (replace example paths with the discovered paths):
+Mac/Linux example shape (replace example paths with the discovered paths):
 
 ```sh
 "/absolute/path/to/python3" "/absolute/path/to/nylohq-codex-setup/scripts/setup.py" inspect --codex-bin "/absolute/path/to/codex"
@@ -30,12 +32,12 @@ The key entry command must run in the member's own interactive terminal, with no
 
 ## What may be changed
 
-- Root keys: `model`, `model_provider`, `model_reasoning_effort`, `model_catalog_json`, `experimental_realtime_webrtc_call_base_url`, `experimental_realtime_ws_base_url`.
+- Root keys (`--text-only` leaves Voice URLs untouched): `model`, `model_provider`, `model_reasoning_effort`, `model_catalog_json`, `experimental_realtime_webrtc_call_base_url`, `experimental_realtime_ws_base_url`.
 - The setup's own provider block: `nylohq_lb`, or existing active `nylohq_voice_audit`. It standardizes authentication and endpoints, removing conflicting authentication fields inside that owned block.
 - The protected `nylohq-lb/api-key` and `nylohq-lb/models.json` files.
 - A private timestamped recovery directory under the same Codex home's `backups`.
 
-Other providers, plugins, MCPs, native `auth.json`/keychain sign-in, trust settings, sandbox/approval settings, history and desktop preferences are retained. OS file permissions protect the plaintext LB key: mode 0600 under a 0700 directory on Mac; an explicit current-user DACL on Windows. Setup does not use the OS keychain and should not be described as encrypted credential storage.
+Other providers, plugins, MCPs, native `auth.json`/keychain sign-in, trust settings, sandbox/approval settings, history and desktop preferences are retained. OS file permissions protect the plaintext LB key: mode 0600 under a 0700 directory on Mac/Linux; an explicit current-user DACL on Windows. Setup does not use the OS keychain and should not be described as encrypted credential storage.
 
 ## Failure handling
 
@@ -45,7 +47,7 @@ Other providers, plugins, MCPs, native `auth.json`/keychain sign-in, trust setti
 | Python missing | Use the bundled interpreter or install Python 3.9+ through the official installer/trusted package manager. |
 | `ready_for_key`, but no staged key | Give the hidden terminal command and wait for the member's confirmation. |
 | Catalog HTTP 401/403 | Have the member check/reenter their own LB key or ask their administrator about access. Do not swap in someone else's credential. |
-| Catalog HTTP 429 | Quota/rate limit: wait for the administrator's guidance; do not loop. |
+| Catalog/text HTTP 429, cooldown 503, upstream stream closed | Stop repeated attempts; follow the [CLI recovery guide](linux-cli.md#429-503-and-upstream-websocket-failures). SSE only changes the client-to-LB transport. |
 | HTTPS/certificate failure | Check network, clock and trusted CA setup. Do not use insecure TLS flags. |
 | Incomplete catalog | LB must return complete `models` metadata. Do not fabricate model capabilities or copy another user's cached catalog. |
 | Model unavailable | Ask the member to select an allowed model and pass its exact ID using `--model`. |
@@ -60,4 +62,4 @@ Other providers, plugins, MCPs, native `auth.json`/keychain sign-in, trust setti
 
 ## Validation boundary
 
-The bundled tests exercise configuration preservation, Windows command generation/quoting, model selection, backups, rollback and restore in isolated fixtures. The build-time live Mac check uses the administrator's existing key internally in an isolated temporary Codex home; no credential is distributed. Native Windows PowerShell/DACL execution and actual Windows realtime audio require a pilot on a Windows member's computer. Four-member concurrency/accounting is a server-side test and is not established by this client installer.
+The bundled tests exercise Linux support, text transport selection, text-only routing, safe error classification, configuration preservation, Windows command generation/quoting, model selection, backups, rollback and restore in isolated fixtures. CI exercises native OS runners; live Linux inference still requires the affected member's private connection check. The build-time live Mac check uses the administrator's existing key internally in an isolated temporary Codex home; no credential is distributed. Native Windows PowerShell/DACL execution and actual Windows realtime audio require a pilot on a Windows member's computer. Four-member concurrency/accounting is a server-side test and is not established by this client installer.

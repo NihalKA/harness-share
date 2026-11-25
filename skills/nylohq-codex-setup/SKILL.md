@@ -1,13 +1,15 @@
 ---
 name: nylohq-codex-setup
-description: Set up or repair direct NyloHQ LB access in the official Codex client on native macOS or Windows using the member's own API key. Use for onboarding, catalog/key refresh, restoring setup backups, or explicitly requested NyloHQ image API fallback.
+description: Set up or repair direct NyloHQ LB access in the official Codex client on macOS, native Windows or Linux CLI using the member's own API key. Use for onboarding, catalog/key refresh, restoring setup backups, or explicitly requested NyloHQ image API fallback.
 ---
 
 # NyloHQ Codex setup
 
 Configure the member's local Codex to connect directly to `https://codex.nylohq.com`. The helper performs the configuration work; follow the steps below in order. This works with a setup conversation running Terra or Luna and does not require changing that conversation's model.
 
-This is a one-time workflow the member requests after signing in. Installing the skill does not create a login hook, background service, local bridge, router, or microphone session.
+For **Linux or CLI-only setup/repair**, read [Linux and terminal-only setup](references/linux-cli.md) first. It works without a desktop app or a functioning Codex chat. Use `apply --text-only --transport sse` for the documented CLI path; image defaults and Voice are separate opt-ins. For 429, 503 or upstream WebSocket errors, use that reference's diagnosis before retrying. A client transport change is not proof that an upstream failure is fixed.
+
+This is a one-time workflow the member requests. CLI custom-provider access uses the member key and does not require native ChatGPT sign-in. Installing the skill does not create a login hook, background service, local bridge, router, or microphone session.
 
 For an **image API fallback request**, read [image generation](references/image-generation.md) and use `scripts/image_cli.py`; do not rerun onboarding. It passes the existing member key and LB URL only to Codex's bundled image CLI. It does not enable the native image tool or grant fallback approval for unrelated future requests. Reuse approval already present in the current conversation. Read the server repair section only for a server-side `gpt-5.5` plan error.
 
@@ -17,7 +19,7 @@ For the repository README's combined install/update prompt, inspect the existing
 
 ## Scope and credential handling
 
-- Work on the member's **local computer**, not a cloud executor or WSL. Use native PowerShell on Windows. If tools only access a remote environment, give the member local commands instead of changing that remote configuration.
+- Work in the **same OS environment as the intended client**. Use native PowerShell for the Windows app/CLI; use Linux tools for native Linux or the Linux CLI in WSL. WSL has a separate home and does not configure the Windows app. A cloud executor does not configure the member's laptop; give local commands unless that remote CLI is the explicitly intended target.
 - The request to set up NyloHQ authorizes the backup and routing changes. Explain what will change, then proceed. Do not repeatedly ask for approval for those same changes; honor actual tool/OS permission requirements.
 - Never ask for the key in chat or a normal text-input tool. The member enters it in their own Terminal/PowerShell through the helper's hidden prompt. Never run the key-entry step in an agent-controlled terminal and ask the user to paste a key into chat for you to type.
 - Never print/read the key file into tool output, show the credential command's stdout, dump `auth.json`, or print the whole existing config. The helper reads credentials internally and emits a safe summary.
@@ -33,9 +35,10 @@ If the user asks to import/install this extracted skill, copy the **whole skill 
 
 Locate Python 3.9+ and the official Codex executable:
 
-- Prefer the app's bundled Python when available through `load_workspace_dependencies`; otherwise try `python3` on Mac and `py -3` or `python` on Windows. Resolve its executable with `import sys; print(sys.executable)` and check its version. Python is only a setup/maintenance dependency, not a running service.
+- Prefer the app's bundled Python when available through `load_workspace_dependencies`; otherwise try `python3` on Mac/Linux and `py -3` or `python` on Windows. Resolve its executable with `import sys; print(sys.executable)` and check its version. Python is only a setup/maintenance dependency, not a running service.
 - Prefer a compatible installed official CLI. Check `codex --version`, then resolve its absolute path. The tested baseline is **0.164.0**. A newer build must also pass the helper's strict-config and connection checks.
 - On Mac, common CLI locations are `/opt/homebrew/bin/codex`, `/usr/local/bin/codex`, and the desktop app's bundled CLI. Do not assume another member has these exact app paths.
+- On Linux, use `command -v codex` and `python3`; no app bundle is required. Keep a non-default `CODEX_HOME` and the selected CLI consistent. See the terminal-only reference for commands that do not require an already working chat.
 - On Windows, use `Get-Command codex -All`. Pass the actual executable or official npm `codex.cmd` path. The credential helper uses built-in Windows PowerShell 5.1, which is separate from the user's terminal choice.
 - If a runtime is missing, read [platform notes](references/platform-notes.md) and install or guide the member through the official prerequisite. Do not invent a substitute client or silently install a router.
 
@@ -71,32 +74,34 @@ Run:
 PYTHON SETUP apply --home TARGET_HOME --codex-bin CODEX
 ```
 
+For text-only CLI setup add `--text-only --transport sse` to that command. `--text-only` leaves existing Voice routes untouched and adds none. Transport selection applies only to text Responses, not Voice: SSE disables client WebSockets; `--transport websocket` enables them. Without an explicit transport, the managed provider's existing setting is retained; new Linux setups default to SSE and other platforms keep the prior WebSocket default.
+
 Default model selection preserves the existing model if its unprefixed ID is visible in this member's catalog. Otherwise it tries `gpt-5.6-terra`, `gpt-6-luna`, then `gpt-5.6-luna`. Preserve an explicit user preference using `--model EXACT_ID`; do not upgrade to an expensive model just for setup. Supported existing reasoning effort is retained, otherwise the model's catalog default is used.
 
 The helper performs these operations:
 
 1. Fetches a complete Codex model catalog using this member's key over verified HTTPS. It rejects redirects and incomplete ID-only catalogs.
-2. Prepares six root settings: model, provider, reasoning, local catalog path and two Voice route URLs. Creates the `nylohq_lb` provider (or retains the known legacy provider ID when already active).
-3. Configures native command-backed authentication: `/bin/cat` on Mac; a native PowerShell file-read command on Windows. The key stays in `TARGET_HOME/nylohq-lb/api-key`, never in TOML or a persistent environment variable. Refresh means reread every five minutes.
-4. Strictly validates the candidate with the selected Codex binary, checks the native credential command privately, and runs one small isolated Codex text request with no copied native sign-in/plugins/MCPs/history. This uses a small amount of LB quota. It never opens a microphone.
+2. Prepares four root settings (six unless `--text-only`): model, provider, reasoning, local catalog path, plus two Voice route URLs unless text-only. Creates the `nylohq_lb` provider (or retains the known legacy provider ID when already active).
+3. Configures native command-backed authentication: `/bin/cat` on Mac/Linux; a native PowerShell file-read command on Windows. The key stays in `TARGET_HOME/nylohq-lb/api-key`, never in TOML or a persistent environment variable. Refresh means reread every five minutes.
+4. Strictly validates the candidate with the selected Codex binary, checks the native credential command privately, and runs one small isolated Codex text request with client retries disabled and no copied native sign-in/plugins/MCPs/history. This uses a small amount of LB quota. It never opens a microphone.
 5. Creates a timestamped private backup under `TARGET_HOME/backups/nylohq-setup-*` of the original config, LB key and model snapshot if present. Records absent files so restore can remove newly created ones. These backups may contain existing secrets; never share them.
 6. Writes the validated catalog/key and updates config last. Restores the previous managed files if a normal commit error occurs. Reports the exact backup path and test results.
 
 The catalog is a member-specific local snapshot. It takes precedence over the configured remote catalog URL. Later refresh it with `apply --reuse-key`, which makes a new backup and runs the same checks.
 
-If `status` is not `configured`, use the reported reason and [platform notes](references/platform-notes.md). Do not repeatedly retry authentication failures or rewrite unrelated tool settings to make an old CLI accept them. Windows runtime checks must pass on that Windows computer; Mac test results are not proof of Windows success.
+If `status` is not `configured`, stop rather than looping. The helper classifies known 429/503/stream failures without printing raw output. Use the reported reason and [platform notes](references/platform-notes.md). Do not repeatedly retry authentication failures or rewrite unrelated tool settings to make an old CLI accept them. Windows runtime checks must pass on that Windows computer; Mac test results are not proof of Windows success.
 
 ## 4. Finish and verify the member's experience
 
 Report the selected model, direct LB address, target config path, backup path and checks that actually passed. Explain that existing chats can retain earlier provider/model choices.
 
-Ask the member to fully quit and reopen their desktop client and restart CLI sessions after the work is finished; do not kill their active chat. Start a **new chat**, choose the desired model and send a short message. `/model` and `/status` in the CLI help inspect the new session. If needed, run this optional fresh verification once:
+Ask the member to restart CLI sessions and, only if used, fully quit and reopen their desktop client after the work is finished; do not kill their active chat. Start a **new chat**, choose the desired model and send a short message. `/model` and `/status` in the CLI help inspect the new session. If needed, run this optional fresh verification once:
 
 ```text
 PYTHON SETUP verify --home TARGET_HOME --codex-bin CODEX
 ```
 
-For realtime two-way Voice, the member starts the official CLI interactively (`codex`) and then types `/voice` **inside Codex**, allowing OS microphone permission if prompted. `/voice stop` ends it; `/voice mute` mutes it. Do not run `/voice`, `/voice settings`, microphone capture or audio probes automatically. The earlier pilot demonstrated Mac CLI Voice; Windows audio must be tested by that member. Missing desktop Voice UI is a separate product/account availability issue, not proof of a failed LB text setup. Never promise complete feature parity or a restored desktop Voice button.
+For realtime two-way Voice, the member starts the official CLI interactively (`codex`) and then types `/voice` **inside Codex**, allowing OS microphone permission if prompted. `/voice stop` ends it; `/voice mute` mutes it. Do not run `/voice`, `/voice settings`, microphone capture or audio probes automatically. The earlier pilot demonstrated Mac CLI Voice; Windows/Linux audio must be tested by that member; text-only setup makes no Voice claim. Missing desktop Voice UI is a separate product/account availability issue, not proof of a failed LB text setup. Never promise complete feature parity or a restored desktop Voice button.
 
 ## Restore or repair
 

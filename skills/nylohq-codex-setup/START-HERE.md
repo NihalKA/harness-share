@@ -1,6 +1,6 @@
 # Set up your NyloHQ Codex connection
 
-Use this same package for the two Windows members and the two Mac members. Each person uses their own NyloHQ LB key. Run setup once after signing into the local Codex client; it does not run automatically at every login.
+Use this package on Mac, native Windows, or Linux CLI. For **Linux or CLI-only setup**, follow the [terminal walkthrough](references/linux-cli.md); it works without a desktop app or an already working Codex chat. The desktop walkthrough follows below. Each person uses their own NyloHQ LB key. Run setup once after signing into the local Codex client; it does not run automatically at every login.
 
 ## What you need
 
@@ -33,7 +33,7 @@ The helper reads your key privately, fetches the current model metadata using th
 
 It preserves your current model when available, including Terra or Luna. It retains your existing plugins, MCP tools, project trust settings, desktop preferences, other providers, native sign-in and chat history. Older chats may retain their old provider/model selection; use a new chat to test the new default.
 
-Credentials are stored in your Codex home's protected `nylohq-lb/api-key` file. Mac uses `/bin/cat` to read it; Windows uses a native PowerShell file-read command. Neither needs a local bridge, router, persistent environment helper, or extra listening port. The key is protected by file permissions, not encrypted by this package.
+Credentials are stored in your Codex home's protected `nylohq-lb/api-key` file. Mac/Linux use `/bin/cat` to read it; Windows uses a native PowerShell file-read command. Neither needs a local bridge, router, persistent environment helper, or extra listening port. The key is protected by file permissions, not encrypted by this package.
 
 Backups are stored under your Codex home's `backups/nylohq-setup-*`. Keep them private: old config/key backups can contain credentials. The shareable ZIP itself contains no member keys, native sign-in data, personal config or model-catalog snapshot.
 

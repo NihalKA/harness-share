@@ -1,4 +1,4 @@
 interface:
   display_name: "NyloHQ Codex Setup"
-  short_description: "Configure NyloHQ access and its image API fallback"
+  short_description: "Set up NyloHQ on Linux CLI, Mac or Windows"
   default_prompt: "Use $nylohq-codex-setup to back up my settings and configure direct NyloHQ LB access with my own API key."

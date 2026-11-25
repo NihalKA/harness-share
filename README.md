@@ -1,8 +1,19 @@
 # NyloHQ Codex setup
 
-Set up the official Codex client on **macOS or native Windows** using your own NyloHQ LB key. Codex installs the skill, checks prerequisites, backs up your configuration, configures the connection, and verifies it. Your current Terra or Luna model can handle the setup conversation.
+Set up the official Codex client on **macOS, native Windows, or Linux CLI** using your own NyloHQ LB key. Codex installs the skill, checks prerequisites, backs up your configuration, configures the connection, and verifies it. Your current Terra or Luna model can handle the setup conversation.
 
-## Start here: one prompt in Codex
+## Linux or CLI-only: start from your terminal
+
+Use the [terminal-only setup and troubleshooting guide](skills/nylohq-codex-setup/references/linux-cli.md).
+It works even when Codex cannot currently answer. It covers native Linux and the
+Linux CLI in WSL, respects `CODEX_HOME`, keeps keys in a hidden prompt, and provides
+`--text-only --transport sse` without desktop, image or Voice prerequisites.
+
+For `429`, a `503` cooldown, or `Upstream websocket closed before response.completed`,
+read the guide's error table first. Repeated retries can prolong the problem;
+client SSE does not guarantee that the LB's upstream WebSocket is repaired.
+
+## Desktop and image setup: one prompt in Codex
 
 Use a **local Codex chat on your own computer** and paste the message below. It works for both new members and members updating an existing installation. Codex gets the skill directly from this repository; you do not need the release ZIP for this route.
 
@@ -22,7 +33,7 @@ Do not modify the LB server or start my microphone.
 
 Once Codex reports success, start a **new chat** and ask normally: **“Create a sample banner image.”** The installed image skill and saved backend choice provide the fallback automatically when the native tool is missing. Image requests use your LB quota.
 
-For a **new connection**, Codex gives you a command to run in your own **Terminal (Mac)** or **PowerShell (Windows)**. Run it, paste your key at the hidden prompt, press Enter, then tell Codex:
+For a **new connection**, Codex gives you a command to run in your own **Terminal (Mac/Linux)** or **PowerShell (Windows)**. Run it, paste your key at the hidden prompt, press Enter, then tell Codex:
 
 ```text
 Key saved, continue.
@@ -36,7 +47,7 @@ The skill is kept in [`skills/nylohq-codex-setup`](skills/nylohq-codex-setup), i
 
 When the member uses the prompt above:
 
-1. Work in their local environment. A cloud executor or WSL configuration will not configure their native desktop client.
+1. Work in their local environment. A cloud executor will not configure their local client. WSL configures only the Linux CLI inside WSL, not the native Windows app.
 2. Install `skills/nylohq-codex-setup` from this repository with the available `$skill-installer`. If it is already installed, inspect it before replacing anything; preserve an older copy before updating. Never install duplicate copies in multiple skill roots.
 3. Read the installed `SKILL.md` and follow its ordered workflow. If the skill list only refreshes next turn, read the installed file directly to continue this request. Do not stop after merely installing the skill.
 4. Inspect the existing connection first. If the configured NyloHQ connection and saved member key are usable, reuse them and continue with the image workflow; do not rerun onboarding or request the key again. If setup is needed, use the bundled `scripts/setup.py` for preflight, private key entry, validation, backup and configuration. Resolve actual paths for this member. Do not generate your own TOML replacement.
@@ -57,6 +68,8 @@ The repository instructions are for an explicitly requested local setup. Merely 
 - Python **3.9+** for setup and maintenance. Codex first looks for an existing or app-bundled runtime and guides you if a prerequisite is missing. The TOML dependency is included; no pip install is needed.
 - Network access to `https://codex.nylohq.com`.
 
+CLI-only users do not need a desktop app or native ChatGPT sign-in; the member key authenticates the custom provider.
+
 Members do not need GitHub accounts to read/download this public repository. They may still need to approve local tool or OS permission prompts. Native Windows setup uses PowerShell, not WSL.
 
 ## What changes
@@ -67,7 +80,7 @@ The connection is:
 Official Codex client → HTTPS NyloHQ LB → configured upstream model
 ```
 
-The helper updates six root settings in the member's Codex `config.toml`: model, provider, reasoning effort, model catalog path, and two realtime Voice URLs. It creates the `nylohq_lb` provider, or retains the known legacy provider ID when already active.
+The helper updates four root settings with `--text-only`, or six by default in the member's Codex `config.toml`: model, provider, reasoning effort, model catalog path, and two realtime Voice URLs when not text-only. The text-only path leaves any existing Voice settings untouched. It creates the `nylohq_lb` provider, or retains the known legacy provider ID when already active.
 
 It preserves the current model if available in the member's catalog. Otherwise it selects an available Terra/Luna default. Existing plugins, MCP tools, other providers, project trust, desktop preferences, approval settings, native sign-in and chat history are preserved. The setup standardizes its own NyloHQ provider block, including replacing conflicting authentication fields there.
 
@@ -78,13 +91,13 @@ It preserves the current model if available in the member's catalog. Otherwise i
 | `nylohq-lb/models.json` | Model metadata fetched with this member's key. It is a local snapshot, not model weights. |
 | `backups/nylohq-setup-*` | Dated recovery copies and a manifest for exact restoration. |
 
-The Codex home defaults to `~/.codex`; a configured `CODEX_HOME` is respected. Mac uses `/bin/cat` for credential reading. Windows uses built-in PowerShell. The key is protected by file permissions; this package does not encrypt it or store it in the OS keychain. It adds no local proxy, bridge, daemon, or listening port. Python is not needed for normal Codex requests after setup.
+The Codex home defaults to `~/.codex`; a configured `CODEX_HOME` is respected. Mac/Linux use `/bin/cat` for credential reading. Windows uses built-in PowerShell. The key is protected by file permissions; this package does not encrypt it or store it in the OS keychain. It adds no local proxy, bridge, daemon, or listening port. Python is not needed for normal Codex requests after setup.
 
 The local catalog takes precedence over the remote catalog URL. Ask the skill to refresh it when your administrator changes the available models.
 
 ## Backups and recovery
 
-Before changing active settings, the helper validates the proposed config, privately checks the credential command, and runs one small isolated text request. This uses a small amount of LB quota. It then backs up existing config/key/catalog files before applying the changes. It records files that did not exist so restore can remove newly created ones.
+Before changing active settings, the helper validates the proposed config, privately checks the credential command, and runs one small isolated text request with client retries disabled. These probe limits do not change normal-session retry settings. This uses a small amount of LB quota. It then backs up existing config/key/catalog files before applying the changes. It records files that did not exist so restore can remove newly created ones.
 
 To undo setup, ask `$nylohq-codex-setup` to restore the exact backup directory from its completion report. Restore checks for later edits and stops rather than overwriting them. Backups can contain previous credentials: keep them private and never commit them.
 
@@ -94,11 +107,11 @@ For a new key, ask the skill to update your key; it will use the hidden prompt a
 
 After setup, start `codex` in a normal terminal. Inside the interactive Codex session, type `/voice` and grant microphone permission if prompted. Use `/voice stop` to finish or `/voice mute` to mute.
 
-The setup never opens the microphone automatically. Mac CLI Voice was demonstrated in the earlier pilot. Native Windows realtime audio still needs a member pilot. Setting the Voice routes does not guarantee a desktop Voice button or every account-gated feature.
+The setup never opens the microphone automatically. Mac CLI Voice was demonstrated in the earlier pilot. Native Windows and Linux realtime audio still need member pilots. The CLI-only text path does not configure Voice. Setting the Voice routes does not guarantee a desktop Voice button or every account-gated feature.
 
 ## Image generation
 
-The NyloHQ image API host-selection repair was verified on 9 November 2026. Members using the same repaired server already benefit from that server change. The **start-here prompt above** installs or updates the complete skill, installs the image companion, records the user's chosen backend and tests a sample image in the same workflow.
+The NyloHQ image API host-selection repair was verified on 9 November 2026. Members using the same repaired server already benefit from that server change. The **desktop and image prompt above** installs or updates the complete skill, installs the image companion, records the user's chosen backend and tests a sample image in the same workflow.
 
 The new `scripts/image_cli.py` helper passes your own protected LB key and the LB endpoint to Codex's existing bundled image CLI for that process. It does not require a new OpenAI key, change your main config, or install another image provider. It also does not make the missing built-in image tool appear in a chat.
 
@@ -108,12 +121,12 @@ Other codex-lb operators seeing `No accounts with a plan supporting model 'gpt-5
 
 ## Validation and maintenance
 
-Mac end-to-end setup passed using `gpt-5.6-terra` and `gpt-6-luna`, including catalog discovery, strict config validation, native credential reading, text replies, repeated setup and exact restoration. The script also has offline tests for preservation, model selection, Windows command generation, key handling, rollback and restore. Native Windows execution and audio require their own pilot; these tests do not establish four-member concurrency or server-side accounting.
+Mac end-to-end setup passed using `gpt-5.6-terra` and `gpt-6-luna`, including catalog discovery, strict config validation, native credential reading, text replies, repeated setup and exact restoration. The script also has offline tests for Linux setup, SSE/WebSocket selection, text-only preservation, safe failure diagnostics, model selection, Windows command generation, key handling, rollback and restore. The GitHub Actions workflow runs offline suites on Ubuntu, macOS and Windows, including strict config parsing with the official CLI; it uses no member keys or live LB calls. Native Windows execution and audio require their own pilot; these tests do not establish four-member concurrency or server-side accounting.
 
 Run the offline tests from the repository root:
 
 ```sh
-# Mac
+# Mac/Linux
 python3 -B skills/nylohq-codex-setup/scripts/test_setup.py
 python3 -B skills/nylohq-codex-setup/scripts/test_image_cli.py
 python3 -B skills/nylohq-codex-setup/scripts/test_image_defaults.py

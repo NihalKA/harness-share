@@ -6,6 +6,8 @@ This repository distributes the NyloHQ member setup skill. Distinguish onboardin
 
 Read `README.md`, install the complete `skills/nylohq-codex-setup` folder into the supported personal skill root, then read that skill's `SKILL.md` and execute its workflow. Use the bundled helper rather than generating TOML edits. Continue after skill installation; the user's request is a configured client, not just an installed skill.
 
+For Linux or CLI-only requests, follow `references/linux-cli.md` and use the text-only terminal path. Do not add image generation or Voice to a text connection repair. Treat SSE as client transport selection, not a guaranteed fix for LB/upstream quota or cooldown errors.
+
 The README's one-prompt workflow covers new and existing members and explicitly chooses the image fallback default. Inspect an existing NyloHQ connection before onboarding; reuse the member's own saved key when usable. For this combined request, continue through `references/image-generation.md`, install the companion and personal preference with `scripts/image_defaults.py`, and verify a sample generation. Do not stop after installing files or ask for a key that is already configured. A request only to browse/review this repository does not authorize these changes.
 
 Use a local runtime on the target computer. Keep each member's API key out of chat, argv, logs and this repository; the member enters it in their own terminal using the helper's hidden prompt. Preserve their tools and sign-in. Never activate a microphone automatically or promise that a text check proves realtime Voice works.
@@ -14,7 +16,7 @@ Use a local runtime on the target computer. Keep each member's API key out of ch
 
 Do not run `apply`, `key` or `restore` against a real user's Codex home just to test a repository change. Use temporary fixtures and `scripts/test_setup.py`. The live setup needs a member's own credential and belongs only to an explicitly requested onboarding/repair workflow.
 
-Keep all distributable skill resources under `skills/nylohq-codex-setup`. Maintain Windows and Mac path handling and the vendored dependency's license. Do not add personal config, model snapshots, auth files, keys, recordings or private backups. Keep test outcomes and platform limitations accurate in the README.
+Keep all distributable skill resources under `skills/nylohq-codex-setup`. Maintain Linux, Windows and Mac path handling and the vendored dependency's license. Do not add personal config, model snapshots, auth files, keys, recordings or private backups. Keep test outcomes and platform limitations accurate in the README.
 
 Run changed-script checks with:
 
